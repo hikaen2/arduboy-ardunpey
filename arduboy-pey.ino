@@ -102,17 +102,21 @@ void drawCursor(int file, int rank) {
   arduboy.drawBitmap(12 * (9-rank) + 3, 12 * file + 1, CURSOR_BITMAP, 25, 13, INVERT);
 }
 
-int cur_file = 0;
-int cur_rank = 1;
-int frame_counter = 0;
+int cur_file = 2;
+int cur_rank = 5;
+int delta_file = 0;
+int delta_rank = 0;
+int frame_counter = 128;
 
 void setup() {
   arduboy.begin();
-  arduboy.setFrameRate(15);
+  arduboy.initRandomSeed();
+  arduboy.setFrameRate(30);
 }
 
 void loop() {
   if (!arduboy.nextFrame()) return;
+  arduboy.pollButtons();
 
   frame_counter++;
 
@@ -126,23 +130,32 @@ void loop() {
     BOARD[*erase] = EMPTY;
   }
 
-  if (frame_counter % 128 == 0) {
+  if (frame_counter % 256 == 0) {
     box_t b[] = {EMPTY, EMPTY, EMPTY, EMPTY, SLASH, BACK_SLASH, AND, OR};
     for (int a = 0; a < 59; a++) BOARD[a] = BOARD[a + 1];
     for (int f = 0; f < 5;  f++) BOARD[address(f, 0)] = EMPTY;
     for (int f = 0; f < 5;  f++) BOARD[address(f, 10)] = b[random(8)];
+    cur_rank = max(cur_rank - 1, 1);
   }
 
-  if (arduboy.pressed(A_BUTTON)) {
+  if (arduboy.justPressed(A_BUTTON)) {
     box_t b = BOARD[address(cur_file, cur_rank)];
     BOARD[address(cur_file, cur_rank)] = BOARD[address(cur_file, cur_rank + 1)];
     BOARD[address(cur_file, cur_rank + 1)] = b;
   }
 
-  if (arduboy.pressed(RIGHT_BUTTON)) cur_rank = max(cur_rank - 1, 1);
-  if (arduboy.pressed(LEFT_BUTTON))  cur_rank = min(cur_rank + 1, 9);
-  if (arduboy.pressed(UP_BUTTON))    cur_file = max(cur_file - 1, 0);
-  if (arduboy.pressed(DOWN_BUTTON))  cur_file = min(cur_file + 1, 4);
+  if (arduboy.pressed(RIGHT_BUTTON)) delta_rank--;
+  if (arduboy.pressed(LEFT_BUTTON))  delta_rank++;
+  if (arduboy.pressed(UP_BUTTON))    delta_file--;
+  if (arduboy.pressed(DOWN_BUTTON))  delta_file++;
+
+  if (arduboy.everyXFrames(4)) {
+    cur_file = cur_file + min(max(delta_file, -1), 1);
+    cur_rank = cur_rank + min(max(delta_rank, -1), 1);
+    cur_file = min(max(cur_file, 0), 4);
+    cur_rank = min(max(cur_rank, 1), 9);
+    delta_file = delta_rank = 0;
+  }
 
   arduboy.clear();
   for (int f = 0; f < 5; f++) {
@@ -151,6 +164,5 @@ void loop() {
     }
   }
   drawCursor(cur_file, cur_rank);
-
   arduboy.display();
 }
