@@ -2,7 +2,7 @@
 
 Arduboy2 arduboy;
 
-enum box_t : uint8_t {
+enum panel_t : uint8_t {
   EMPTY      = 0, // ' '
   SLASH      = 1, // '/'
   BACK_SLASH = 2, // '\'
@@ -11,25 +11,27 @@ enum box_t : uint8_t {
 };
 
 /*
- *  0 12 24 36 48 <- hidden rank
- *  1 13 25 37 49
- *  2 14 26 38 50
- *  3 15 27 39 51
- *  4 16 28 40 52
- *  5 17 29 41 53
- *  6 18 30 42 54
- *  7 19 31 43 55
- *  8 20 32 44 56
- *  9 21 33 45 57
- * 10 22 34 46 58
- * 11 23 35 47 59 <- hidden rank
+ *  0 10 20 30 40
+ *  1 11 21 31 41
+ *  2 12 22 32 42
+ *  3 13 23 33 43
+ *  4 14 24 34 44
+ *  5 15 25 35 45
+ *  6 16 26 36 46
+ *  7 17 27 37 47
+ *  8 18 28 38 48
+ *  9 19 29 39 49
  */
-box_t BOARD[60];
+panel_t BOARD[50];
+bool REACHED[50];
+bool SEEN[50];
 
+const int FILE_MAX = 5;
+const int RANK_MAX = 10;
 const int U = -1;
 const int D = 1;
-const int R = 12;
-const int L = -12;
+const int R = RANK_MAX;
+const int L = -RANK_MAX;
 const int RU = R + U;
 const int RD = R + D;
 const int LU = L + U;
@@ -51,59 +53,103 @@ const uint8_t PROGMEM CURSOR_BITMAP[] = {
 };
 
 int address(int file, int rank) {
-  return 12 * file + rank;
+  return RANK_MAX * file + rank;
 }
 
 int file(int address) {
-  return address / 12;
+  return address / RANK_MAX;
 }
 
 int rank(int address) {
-  return address % 12;
+  return address % RANK_MAX;
 }
 
-bool reachr(int address) {
-  box_t b = BOARD[address];
-  if (b == EMPTY) return false;
-  if (file(address) == 4) return true;
-
-  box_t r  = BOARD[address + R ];
-  box_t ru = BOARD[address + RU];
-  box_t rd = BOARD[address + RD];
-
-  if ((b == SLASH      || b == OR ) && (ru == SLASH      || ru == AND) && reachr(address + RU)) return true;
-  if ((b == SLASH      || b == OR ) && (r  == BACK_SLASH || r  == OR ) && reachr(address + R )) return true;
-  if ((b == BACK_SLASH || b == AND) && (rd == BACK_SLASH || rd == OR ) && reachr(address + RD)) return true;
-  if ((b == BACK_SLASH || b == AND) && (r  == SLASH      || r  == AND) && reachr(address + R )) return true;
-  return false;
+/**
+ * パネルの右上にノードがあるか
+ */
+bool has_ru_node(panel_t p) {
+  return p == SLASH || p == OR;
 }
 
-bool reachl(int address) {
-  box_t b = BOARD[address];
-  if (b == EMPTY) return false;
-  if (file(address) == 0) return true;
+/**
+ * パネルの右下にノードがあるか
+ */
+bool has_rd_node(panel_t p) {
+  return p == BACK_SLASH || p == AND;
+}
 
-  box_t l  = BOARD[address + L ];
-  box_t lu = BOARD[address + LU];
-  box_t ld = BOARD[address + LD];
+/**
+ * パネルの左上にノードがあるか
+ */
+bool has_lu_node(panel_t p) {
+  return p == BACK_SLASH || p == OR;
+}
 
-  if ((b == BACK_SLASH || b == OR ) && (lu == BACK_SLASH || lu == AND) && reachl(address + LU)) return true;
-  if ((b == BACK_SLASH || b == OR ) && (l  == SLASH      || l  == OR ) && reachl(address + L )) return true;
-  if ((b == SLASH      || b == AND) && (ld == SLASH      || ld == OR ) && reachl(address + LD)) return true;
-  if ((b == SLASH      || b == AND) && (l  == BACK_SLASH || l  == AND) && reachl(address + L )) return true;
-  return false;
+/**
+ * パネルの左下にノードがあるか
+ */
+bool has_ld_node(panel_t p) {
+  return p == SLASH || p == AND;  
+}
+
+/**
+ * パネルの右端のノード（右上か右下）に接続されているエッジを探索する
+ */
+bool searchr(uint8_t f, uint8_t r) {
+  if (FILE_MAX <= f || RANK_MAX <= r) return false;
+  uint8_t a = address(f, r);
+  if (SEEN[a] || REACHED[a]) return REACHED[a];
+  SEEN[a] = true;
+  if (BOARD[a] == EMPTY) return false;
+  if (f == FILE_MAX - 1) REACHED[a] = true;
+
+  // パネルの右上にノードがある
+  if (has_ru_node(BOARD[a]) && has_ld_node(BOARD[a + RU]) && searchr(f + 1, r - 1)) REACHED[a] = true; // ノードから右上に向かう
+  if (has_ru_node(BOARD[a]) && has_lu_node(BOARD[a + R ]) && searchr(f + 1, r - 0)) REACHED[a] = true; // ノードから右下に向かう
+  if (has_ru_node(BOARD[a]) && has_rd_node(BOARD[a + U ]) && searchl(f + 0, r - 1)) REACHED[a] = true; // ノードから左上に向かう
+
+  // パネルの右下にノードがある
+  if (has_rd_node(BOARD[a]) && has_lu_node(BOARD[a + RD]) && searchr(f + 1, r + 1)) REACHED[a] = true; // ノードから右下に向かう
+  if (has_rd_node(BOARD[a]) && has_ld_node(BOARD[a + R ]) && searchr(f + 1, r + 0)) REACHED[a] = true; // ノードから右上に向かう
+  if (has_rd_node(BOARD[a]) && has_ru_node(BOARD[a + D ]) && searchl(f + 0, r + 1)) REACHED[a] = true; // ノードから左下に向かう
+
+  return REACHED[a];
+}
+
+/**
+ * パネルの左端のノード（左上か左下）に接続されているエッジを探索する
+ */
+bool searchl(uint8_t f, uint8_t r) {
+  if (FILE_MAX <= f || RANK_MAX <= r) return false;
+  uint8_t a = address(f, r);
+  if (SEEN[a] || REACHED[a]) return REACHED[a];
+  SEEN[a] = true;
+  if (BOARD[a] == EMPTY) return false;
+  // if (f == FILE_MAX - 1) REACHED[a] = true; // 左端探索のときは到達しない
+
+  // パネルの左上にノードがある
+  if (has_lu_node(BOARD[a]) && has_rd_node(BOARD[a + LU]) && searchl(f - 1, r - 1)) REACHED[a] = true; // ノードから左上に向かう
+  if (has_lu_node(BOARD[a]) && has_ru_node(BOARD[a + L ]) && searchl(f - 1, r - 0)) REACHED[a] = true; // ノードから左下に向かう
+  if (has_lu_node(BOARD[a]) && has_ld_node(BOARD[a + U ]) && searchr(f - 0, r - 1)) REACHED[a] = true; // ノードから右上に向かう
+
+  // パネルの左下にノードがある
+  if (has_ld_node(BOARD[a]) && has_ru_node(BOARD[a + LD]) && searchl(f - 1, r + 1)) REACHED[a] = true; // ノードから左下に向かう
+  if (has_ld_node(BOARD[a]) && has_rd_node(BOARD[a + L ]) && searchl(f - 1, r + 0)) REACHED[a] = true; // ノードから左上に向かう
+  if (has_ld_node(BOARD[a]) && has_lu_node(BOARD[a + D ]) && searchr(f - 0, r + 1)) REACHED[a] = true; // ノードから右下に向かう
+
+  return REACHED[a];
 }
 
 void drawBox(int file, int rank, uint8_t* bitmap) {
-  arduboy.drawBitmap(12 * (10-rank) + 3, 12 * file + 1, bitmap, 13, 13);  
+  arduboy.drawBitmap(12 * (RANK_MAX - 1 - rank) + 3, 12 * file + 2, bitmap, 13, 13);  
 }
 
 void drawCursor(int file, int rank) {
-  arduboy.drawBitmap(12 * (9-rank) + 3, 12 * file + 1, CURSOR_BITMAP, 25, 13, INVERT);
+  arduboy.drawBitmap(12 * (RANK_MAX - 2 - rank) + 3, 12 * file + 2, CURSOR_BITMAP, 25, 13, INVERT);
 }
 
 int cur_file = 2;
-int cur_rank = 5;
+int cur_rank = 4;
 int delta_file = 0;
 int delta_rank = 0;
 int frame_counter = 128;
@@ -120,26 +166,25 @@ void loop() {
 
   frame_counter++;
 
-  uint8_t erases[60];
-  uint8_t* erase = erases;
-  for (int a = 0; a < 60; a++) {
-    if (reachl(a) && reachr(a)) *erase++ = a;
+  memset(REACHED, false, sizeof(REACHED)); 
+  for (int r = 0; r < RANK_MAX; r++) {
+    memset(SEEN, false, sizeof(SEEN)); 
+    searchr(0, r);
   }
-  *erase = 0;
-  for (erase = erases; *erase != 0; erase++) {
-    BOARD[*erase] = EMPTY;
+  for (int a = 0; a < 50; a++) {
+    if (REACHED[a]) BOARD[a] = EMPTY;
   }
 
   if (frame_counter % 256 == 0) {
-    box_t b[] = {EMPTY, EMPTY, EMPTY, EMPTY, SLASH, BACK_SLASH, AND, OR};
-    for (int a = 0; a < 59; a++) BOARD[a] = BOARD[a + 1];
-    for (int f = 0; f < 5;  f++) BOARD[address(f, 0)] = EMPTY;
-    for (int f = 0; f < 5;  f++) BOARD[address(f, 10)] = b[random(8)];
-    cur_rank = max(cur_rank - 1, 1);
+    panel_t b[] = {EMPTY, EMPTY, EMPTY, EMPTY, SLASH, BACK_SLASH, AND, OR};
+    for (int f = 0; f < FILE_MAX; f++) BOARD[address(f, 0)] = EMPTY;
+    for (int a = 0; a < 50; a++) BOARD[a] = BOARD[a + 1];
+    for (int f = 0; f < FILE_MAX; f++) BOARD[address(f, 9)] = b[random(8)];
+    delta_rank--;
   }
 
   if (arduboy.justPressed(A_BUTTON)) {
-    box_t b = BOARD[address(cur_file, cur_rank)];
+    panel_t b = BOARD[address(cur_file, cur_rank)];
     BOARD[address(cur_file, cur_rank)] = BOARD[address(cur_file, cur_rank + 1)];
     BOARD[address(cur_file, cur_rank + 1)] = b;
   }
@@ -152,14 +197,14 @@ void loop() {
   if (arduboy.everyXFrames(4)) {
     cur_file = cur_file + min(max(delta_file, -1), 1);
     cur_rank = cur_rank + min(max(delta_rank, -1), 1);
-    cur_file = min(max(cur_file, 0), 4);
-    cur_rank = min(max(cur_rank, 1), 9);
+    cur_file = min(max(cur_file, 0), FILE_MAX - 1);
+    cur_rank = min(max(cur_rank, 0), RANK_MAX - 2);
     delta_file = delta_rank = 0;
   }
 
   arduboy.clear();
-  for (int f = 0; f < 5; f++) {
-    for (int r = 1; r < 11; r++) {
+  for (int f = 0; f < FILE_MAX; f++) {
+    for (int r = 0; r < RANK_MAX; r++) {
       drawBox(f, r, &BOX_BITMAP[26 * BOARD[address(f, r)]]);
     }
   }
