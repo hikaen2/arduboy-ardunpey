@@ -50,6 +50,19 @@ const uint8_t PROGMEM CURSOR_BITMAP[] = {
   0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f,
 };
 
+const uint8_t PROGMEM NUM_BITMAP[] = {
+  0x03, 0x05, 0x05, 0x05, 0x06, // 0
+  0x07, 0x02, 0x02, 0x03, 0x02, // 1
+  0x07, 0x01, 0x06, 0x04, 0x03, // 2
+  0x03, 0x04, 0x02, 0x04, 0x03, // 3
+  0x04, 0x04, 0x07, 0x05, 0x01, // 4
+  0x03, 0x04, 0x07, 0x01, 0x07, // 5
+  0x03, 0x05, 0x07, 0x01, 0x06, // 6
+  0x01, 0x01, 0x02, 0x04, 0x07, // 7
+  0x03, 0x05, 0x07, 0x05, 0x06, // 8
+  0x03, 0x04, 0x07, 0x05, 0x06, // 9
+};
+
 int address(int file, int rank) {
   return RANK_MAX * file + rank;
 }
@@ -150,6 +163,7 @@ int cur_file = 2;
 int cur_rank = 4;
 int frame_counter = 128;
 int key_wait = 0;
+int score = 0;
 
 void setup() {
   arduboy.begin();
@@ -170,7 +184,10 @@ void loop() {
     searchr(0, r);
   }
   for (int a = 0; a < 50; a++) {
-    if (REACHED[a]) BOARD[a] = EMPTY;
+    if (REACHED[a]) {
+      BOARD[a] = EMPTY;
+      score++;
+    }
   }
 
   if (frame_counter % 256 == 0) {
@@ -214,5 +231,11 @@ void loop() {
     }
   }
   drawCursor(cur_file, cur_rank);
+
+  arduboy.drawBitmap(120, 48, &NUM_BITMAP[5 * (score / 1000 % 10)], 5, 3);
+  arduboy.drawBitmap(120, 52, &NUM_BITMAP[5 * (score / 100 % 10)], 5, 3);
+  arduboy.drawBitmap(120, 56, &NUM_BITMAP[5 * (score / 10 % 10)], 5, 3);
+  arduboy.drawBitmap(120, 60, &NUM_BITMAP[5 * (score % 10)], 5, 3);
+
   arduboy.display();
 }
