@@ -151,7 +151,7 @@ bool searchl(uint8_t f, uint8_t r) {
   return REACHED[a];
 }
 
-void drawBox(int file, int rank, uint8_t* bitmap) {
+void drawPanel(int file, int rank, const uint8_t* bitmap) {
   arduboy.drawBitmap(11 * (RANK_MAX - 1 - rank) + 3, 12 * file + 2, bitmap, 12, 13);
 }
 
@@ -193,7 +193,7 @@ void loop() {
   if (frame_counter % 256 == 0) {
     panel_t b[] = {EMPTY, EMPTY, EMPTY, EMPTY, SLASH, BACK_SLASH, AND, OR};
     for (int f = 0; f < FILE_MAX; f++) BOARD[address(f, 0)] = EMPTY;
-    for (int a = 0; a < 50; a++) BOARD[a] = BOARD[a + 1];
+    for (int a = 0; a < 49; a++) BOARD[a] = BOARD[a + 1];
     for (int f = 0; f < FILE_MAX; f++) BOARD[address(f, 9)] = b[random(8)];
     cur_rank = max(cur_rank - 1, 0);
   }
@@ -227,7 +227,7 @@ void loop() {
   arduboy.clear();
   for (int f = 0; f < FILE_MAX; f++) {
     for (int r = 0; r < RANK_MAX; r++) {
-      drawBox(f, r, &BOX_BITMAP[24 * BOARD[address(f, r)]]);
+      drawPanel(f, r, &BOX_BITMAP[24 * BOARD[address(f, r)]]);
     }
   }
   drawCursor(cur_file, cur_rank);
