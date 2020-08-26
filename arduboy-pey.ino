@@ -148,9 +148,8 @@ void drawCursor(int file, int rank) {
 
 int cur_file = 2;
 int cur_rank = 4;
-int delta_file = 0;
-int delta_rank = 0;
 int frame_counter = 128;
+int key_wait = 0;
 
 void setup() {
   arduboy.begin();
@@ -179,7 +178,7 @@ void loop() {
     for (int f = 0; f < FILE_MAX; f++) BOARD[address(f, 0)] = EMPTY;
     for (int a = 0; a < 50; a++) BOARD[a] = BOARD[a + 1];
     for (int f = 0; f < FILE_MAX; f++) BOARD[address(f, 9)] = b[random(8)];
-    delta_rank--;
+    cur_rank = max(cur_rank - 1, 0);
   }
 
   if (arduboy.justPressed(A_BUTTON)) {
@@ -188,17 +187,24 @@ void loop() {
     BOARD[address(cur_file, cur_rank + 1)] = b;
   }
 
-  if (arduboy.pressed(RIGHT_BUTTON)) delta_rank--;
-  if (arduboy.pressed(LEFT_BUTTON))  delta_rank++;
-  if (arduboy.pressed(UP_BUTTON))    delta_file--;
-  if (arduboy.pressed(DOWN_BUTTON))  delta_file++;
-
-  if (arduboy.everyXFrames(4)) {
-    cur_file = cur_file + min(max(delta_file, -1), 1);
-    cur_rank = cur_rank + min(max(delta_rank, -1), 1);
-    cur_file = min(max(cur_file, 0), FILE_MAX - 1);
-    cur_rank = min(max(cur_rank, 0), RANK_MAX - 2);
-    delta_file = delta_rank = 0;
+  key_wait = max(key_wait - 1, 0);
+  if (key_wait == 0) {
+    if (arduboy.pressed(RIGHT_BUTTON)) {
+      cur_rank = max(cur_rank - 1, 0);
+      key_wait = 4;
+    }
+    if (arduboy.pressed(LEFT_BUTTON)) {
+      cur_rank = min(cur_rank + 1, RANK_MAX - 2);
+      key_wait = 4;
+    }
+    if (arduboy.pressed(UP_BUTTON)) {
+      cur_file = max(cur_file - 1, 0);
+      key_wait = 4;
+    }
+    if (arduboy.pressed(DOWN_BUTTON)) {
+      cur_file = min(cur_file + 1, FILE_MAX - 1);
+      key_wait = 4;
+    }
   }
 
   arduboy.clear();
