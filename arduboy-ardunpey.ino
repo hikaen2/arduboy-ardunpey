@@ -184,7 +184,7 @@ void loop() {
     }
   }
 
-  if (frame_counter % 256 == 0) {
+  if (frame_counter % 256 == 0 || arduboy.justPressed(B_BUTTON)) {
     panel_t b[] = {EMPTY, EMPTY, EMPTY, EMPTY, SLASH, BACK_SLASH, AND, OR};
     for (int f = 0; f < FILE_MAX; f++) BOARD[address(f, 0)] = EMPTY;
     for (int a = 0; a < 49; a++) BOARD[a] = BOARD[a + 1];
