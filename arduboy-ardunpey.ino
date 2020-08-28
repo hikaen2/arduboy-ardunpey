@@ -1,7 +1,9 @@
 #include <Arduboy2.h>
 
-Arduboy2 arduboy;
 
+/*
+ * enum
+ */
 enum panel_t : uint8_t {
   EMPTY      = 0, // ' '
   SLASH      = 1, // '/'
@@ -10,32 +12,10 @@ enum panel_t : uint8_t {
   OR         = 4, // '∨'
 };
 
-/*
- *  0 10 20 30 40
- *  1 11 21 31 41
- *  2 12 22 32 42
- *  3 13 23 33 43
- *  4 14 24 34 44
- *  5 15 25 35 45
- *  6 16 26 36 46
- *  7 17 27 37 47
- *  8 18 28 38 48
- *  9 19 29 39 49
- */
-panel_t BOARD[50];
-bool REACHED[50];
-bool SEEN[50];
 
-const int FILE_MAX = 5;
-const int RANK_MAX = 10;
-const int U = -1;
-const int D = 1;
-const int R = RANK_MAX;
-const int L = -RANK_MAX;
-const int RU = R + U;
-const int RD = R + D;
-const int LU = L + U;
-const int LD = L + D;
+/*
+ * consts
+ */
 
 const uint8_t PROGMEM BOX_BITMAP[] = {
   0x07, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x07, 0x1c, 0x10, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x10, 0x1c, // EMPTY
@@ -62,6 +42,121 @@ const uint8_t PROGMEM NUM_BITMAP[] = {
   0x03, 0x05, 0x07, 0x05, 0x06, // 8
   0x03, 0x04, 0x07, 0x05, 0x06, // 9
 };
+
+const int FILE_MAX = 5;
+const int RANK_MAX = 10;
+const int U = -1; // up
+const int D = 1; // down
+const int R = RANK_MAX; // right
+const int L = -RANK_MAX; // left
+
+
+/*
+ * global vars 
+ */
+
+Arduboy2 arduboy;
+
+/*
+ *  0 10 20 30 40
+ *  1 11 21 31 41
+ *  2 12 22 32 42
+ *  3 13 23 33 43
+ *  4 14 24 34 44
+ *  5 15 25 35 45
+ *  6 16 26 36 46
+ *  7 17 27 37 47
+ *  8 18 28 38 48
+ *  9 19 29 39 49
+ */
+panel_t BOARD[FILE_MAX * RANK_MAX];
+bool REACHED[FILE_MAX * RANK_MAX];
+bool SEEN[FILE_MAX * RANK_MAX];
+int cur_file = 2;
+int cur_rank = 4;
+int frame_counter = 128;
+int key_wait = 0;
+int score = 0;
+
+
+/*
+ * functions
+ */
+
+void setup() {
+  arduboy.begin();
+  arduboy.initRandomSeed();
+  arduboy.setFrameRate(30);
+  // arduboy.invert(true);
+}
+
+void loop() {
+  if (!arduboy.nextFrame()) return;
+  arduboy.pollButtons();
+
+  frame_counter++;
+
+  memset(REACHED, 0, sizeof(REACHED));
+  memset(SEEN, 0, sizeof(SEEN));
+  for (int r = 0; r < RANK_MAX; r++) {
+    search_r(0, r);
+  }
+  for (int a = 0; a < 50; a++) {
+    if (REACHED[a]) {
+      BOARD[a] = EMPTY;
+      score++;
+    }
+  }
+
+  if (frame_counter % 256 == 0 || arduboy.justPressed(B_BUTTON)) {
+    panel_t b[] = {EMPTY, EMPTY, EMPTY, EMPTY, SLASH, BACK_SLASH, AND, OR};
+    for (int f = 0; f < FILE_MAX; f++) BOARD[address(f, 0)] = EMPTY;
+    for (int a = 0; a < 49; a++) BOARD[a] = BOARD[a + 1];
+    for (int f = 0; f < FILE_MAX; f++) BOARD[address(f, 9)] = b[random(8)];
+    cur_rank = max(cur_rank - 1, 0);
+  }
+
+  if (arduboy.justPressed(A_BUTTON)) {
+    panel_t b = BOARD[address(cur_file, cur_rank)];
+    BOARD[address(cur_file, cur_rank)] = BOARD[address(cur_file, cur_rank + 1)];
+    BOARD[address(cur_file, cur_rank + 1)] = b;
+  }
+
+  key_wait = max(key_wait - 1, 0);
+  if (key_wait == 0) {
+    if (arduboy.pressed(RIGHT_BUTTON)) {
+      cur_rank = max(cur_rank - 1, 0);
+      key_wait = 4;
+    }
+    if (arduboy.pressed(LEFT_BUTTON)) {
+      cur_rank = min(cur_rank + 1, RANK_MAX - 2);
+      key_wait = 4;
+    }
+    if (arduboy.pressed(UP_BUTTON)) {
+      cur_file = max(cur_file - 1, 0);
+      key_wait = 4;
+    }
+    if (arduboy.pressed(DOWN_BUTTON)) {
+      cur_file = min(cur_file + 1, FILE_MAX - 1);
+      key_wait = 4;
+    }
+  }
+
+  arduboy.clear();
+  for (int f = 0; f < FILE_MAX; f++) {
+    for (int r = 0; r < RANK_MAX; r++) {
+      draw_panel(f, r, &BOX_BITMAP[24 * BOARD[address(f, r)]]);
+    }
+  }
+  draw_cursor(cur_file, cur_rank);
+
+  arduboy.drawBitmap(120, 48, &NUM_BITMAP[5 * (score / 1000 % 10)], 5, 3);
+  arduboy.drawBitmap(120, 52, &NUM_BITMAP[5 * (score / 100 % 10)], 5, 3);
+  arduboy.drawBitmap(120, 56, &NUM_BITMAP[5 * (score / 10 % 10)], 5, 3);
+  arduboy.drawBitmap(120, 60, &NUM_BITMAP[5 * (score % 10)], 5, 3);
+
+  arduboy.display();
+}
 
 int address(int file, int rank) {
   return RANK_MAX * file + rank;
@@ -113,12 +208,12 @@ bool search_r(uint8_t f, uint8_t r) {
   SEEN[a] = true;
 
   REACHED[a] |= f == FILE_MAX - 1;
-  REACHED[a] |= has_ru_node(BOARD[a]) && has_ld_node(BOARD[a + RU]) && search_r(f + 1, r - 1); // パネルの右上のノードから右上に向かう
-  REACHED[a] |= has_ru_node(BOARD[a]) && has_lu_node(BOARD[a + R ]) && search_r(f + 1, r - 0); // パネルの右上のノードから右下に向かう
-  REACHED[a] |= has_ru_node(BOARD[a]) && has_rd_node(BOARD[a + U ]) && search_l(f + 0, r - 1); // パネルの右上のノードから左上に向かう
-  REACHED[a] |= has_rd_node(BOARD[a]) && has_lu_node(BOARD[a + RD]) && search_r(f + 1, r + 1); // パネルの右下のノードから右下に向かう
-  REACHED[a] |= has_rd_node(BOARD[a]) && has_ld_node(BOARD[a + R ]) && search_r(f + 1, r + 0); // パネルの右下のノードから右上に向かう
-  REACHED[a] |= has_rd_node(BOARD[a]) && has_ru_node(BOARD[a + D ]) && search_l(f + 0, r + 1); // パネルの右下のノードから左下に向かう
+  REACHED[a] |= has_ru_node(BOARD[a]) && has_ld_node(BOARD[a + R + U]) && search_r(f + 1, r - 1); // パネルの右上のノードから右上に向かう
+  REACHED[a] |= has_ru_node(BOARD[a]) && has_lu_node(BOARD[a + R    ]) && search_r(f + 1, r - 0); // パネルの右上のノードから右下に向かう
+  REACHED[a] |= has_ru_node(BOARD[a]) && has_rd_node(BOARD[a + U    ]) && search_l(f + 0, r - 1); // パネルの右上のノードから左上に向かう
+  REACHED[a] |= has_rd_node(BOARD[a]) && has_lu_node(BOARD[a + R + D]) && search_r(f + 1, r + 1); // パネルの右下のノードから右下に向かう
+  REACHED[a] |= has_rd_node(BOARD[a]) && has_ld_node(BOARD[a + R    ]) && search_r(f + 1, r + 0); // パネルの右下のノードから右上に向かう
+  REACHED[a] |= has_rd_node(BOARD[a]) && has_ru_node(BOARD[a + D    ]) && search_l(f + 0, r + 1); // パネルの右下のノードから左下に向かう
 
   SEEN[a] = false;
   return REACHED[a];
@@ -134,102 +229,21 @@ bool search_l(uint8_t f, uint8_t r) {
   SEEN[a] = true;
 
   // REACHED[a] |= f == FILE_MAX - 1; // 左端探索のときは到達しない
-  REACHED[a] |= has_lu_node(BOARD[a]) && has_rd_node(BOARD[a + LU]) && search_l(f - 1, r - 1); // パネルの左上のノードから左上に向かう
-  REACHED[a] |= has_lu_node(BOARD[a]) && has_ru_node(BOARD[a + L ]) && search_l(f - 1, r - 0); // パネルの左上のノードから左下に向かう
-  REACHED[a] |= has_lu_node(BOARD[a]) && has_ld_node(BOARD[a + U ]) && search_r(f - 0, r - 1); // パネルの左上のノードから右上に向かう
-  REACHED[a] |= has_ld_node(BOARD[a]) && has_ru_node(BOARD[a + LD]) && search_l(f - 1, r + 1); // パネルの左下のノードから左下に向かう
-  REACHED[a] |= has_ld_node(BOARD[a]) && has_rd_node(BOARD[a + L ]) && search_l(f - 1, r + 0); // パネルの左下のノードから左上に向かう
-  REACHED[a] |= has_ld_node(BOARD[a]) && has_lu_node(BOARD[a + D ]) && search_r(f - 0, r + 1); // パネルの左下のノードから右下に向かう
+  REACHED[a] |= has_lu_node(BOARD[a]) && has_rd_node(BOARD[a + L + U]) && search_l(f - 1, r - 1); // パネルの左上のノードから左上に向かう
+  REACHED[a] |= has_lu_node(BOARD[a]) && has_ru_node(BOARD[a + L    ]) && search_l(f - 1, r - 0); // パネルの左上のノードから左下に向かう
+  REACHED[a] |= has_lu_node(BOARD[a]) && has_ld_node(BOARD[a + U    ]) && search_r(f - 0, r - 1); // パネルの左上のノードから右上に向かう
+  REACHED[a] |= has_ld_node(BOARD[a]) && has_ru_node(BOARD[a + L + D]) && search_l(f - 1, r + 1); // パネルの左下のノードから左下に向かう
+  REACHED[a] |= has_ld_node(BOARD[a]) && has_rd_node(BOARD[a + L    ]) && search_l(f - 1, r + 0); // パネルの左下のノードから左上に向かう
+  REACHED[a] |= has_ld_node(BOARD[a]) && has_lu_node(BOARD[a + D    ]) && search_r(f - 0, r + 1); // パネルの左下のノードから右下に向かう
 
   SEEN[a] = false;
   return REACHED[a];
 }
 
-void drawPanel(int file, int rank, const uint8_t* bitmap) {
+void draw_panel(int file, int rank, const uint8_t* bitmap) {
   arduboy.drawBitmap(11 * (RANK_MAX - 1 - rank) + 3, 12 * file + 2, bitmap, 12, 13);
 }
 
-void drawCursor(int file, int rank) {
+void draw_cursor(int file, int rank) {
   arduboy.drawBitmap(11 * (RANK_MAX - 2 - rank) + 3, 12 * file + 2, CURSOR_BITMAP, 23, 13, INVERT);
-}
-
-int cur_file = 2;
-int cur_rank = 4;
-int frame_counter = 128;
-int key_wait = 0;
-int score = 0;
-
-void setup() {
-  arduboy.begin();
-  arduboy.initRandomSeed();
-  arduboy.setFrameRate(30);
-  // arduboy.invert(true);
-}
-
-void loop() {
-  if (!arduboy.nextFrame()) return;
-  arduboy.pollButtons();
-
-  frame_counter++;
-
-  memset(REACHED, 0, sizeof(REACHED)); 
-  memset(SEEN, 0, sizeof(SEEN)); 
-  for (int r = 0; r < RANK_MAX; r++) {
-    search_r(0, r);
-  }
-  for (int a = 0; a < 50; a++) {
-    if (REACHED[a]) {
-      BOARD[a] = EMPTY;
-      score++;
-    }
-  }
-
-  if (frame_counter % 256 == 0 || arduboy.justPressed(B_BUTTON)) {
-    panel_t b[] = {EMPTY, EMPTY, EMPTY, EMPTY, SLASH, BACK_SLASH, AND, OR};
-    for (int f = 0; f < FILE_MAX; f++) BOARD[address(f, 0)] = EMPTY;
-    for (int a = 0; a < 49; a++) BOARD[a] = BOARD[a + 1];
-    for (int f = 0; f < FILE_MAX; f++) BOARD[address(f, 9)] = b[random(8)];
-    cur_rank = max(cur_rank - 1, 0);
-  }
-
-  if (arduboy.justPressed(A_BUTTON)) {
-    panel_t b = BOARD[address(cur_file, cur_rank)];
-    BOARD[address(cur_file, cur_rank)] = BOARD[address(cur_file, cur_rank + 1)];
-    BOARD[address(cur_file, cur_rank + 1)] = b;
-  }
-
-  key_wait = max(key_wait - 1, 0);
-  if (key_wait == 0) {
-    if (arduboy.pressed(RIGHT_BUTTON)) {
-      cur_rank = max(cur_rank - 1, 0);
-      key_wait = 4;
-    }
-    if (arduboy.pressed(LEFT_BUTTON)) {
-      cur_rank = min(cur_rank + 1, RANK_MAX - 2);
-      key_wait = 4;
-    }
-    if (arduboy.pressed(UP_BUTTON)) {
-      cur_file = max(cur_file - 1, 0);
-      key_wait = 4;
-    }
-    if (arduboy.pressed(DOWN_BUTTON)) {
-      cur_file = min(cur_file + 1, FILE_MAX - 1);
-      key_wait = 4;
-    }
-  }
-
-  arduboy.clear();
-  for (int f = 0; f < FILE_MAX; f++) {
-    for (int r = 0; r < RANK_MAX; r++) {
-      drawPanel(f, r, &BOX_BITMAP[24 * BOARD[address(f, r)]]);
-    }
-  }
-  drawCursor(cur_file, cur_rank);
-
-  arduboy.drawBitmap(120, 48, &NUM_BITMAP[5 * (score / 1000 % 10)], 5, 3);
-  arduboy.drawBitmap(120, 52, &NUM_BITMAP[5 * (score / 100 % 10)], 5, 3);
-  arduboy.drawBitmap(120, 56, &NUM_BITMAP[5 * (score / 10 % 10)], 5, 3);
-  arduboy.drawBitmap(120, 60, &NUM_BITMAP[5 * (score % 10)], 5, 3);
-
-  arduboy.display();
 }
