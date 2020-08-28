@@ -106,48 +106,42 @@ bool has_ld_node(panel_t p) {
 /**
  * パネルの右端のノード（右上か右下）に接続されているエッジを探索する
  */
-bool searchr(uint8_t f, uint8_t r) {
+bool search_r(uint8_t f, uint8_t r) {
   if (FILE_MAX <= f || RANK_MAX <= r) return false;
   uint8_t a = address(f, r);
   if (SEEN[a] || REACHED[a]) return REACHED[a];
   SEEN[a] = true;
-  if (BOARD[a] == EMPTY) return false;
-  if (f == FILE_MAX - 1) REACHED[a] = true;
 
-  // パネルの右上にノードがある
-  if (has_ru_node(BOARD[a]) && has_ld_node(BOARD[a + RU]) && searchr(f + 1, r - 1)) REACHED[a] = true; // ノードから右上に向かう
-  if (has_ru_node(BOARD[a]) && has_lu_node(BOARD[a + R ]) && searchr(f + 1, r - 0)) REACHED[a] = true; // ノードから右下に向かう
-  if (has_ru_node(BOARD[a]) && has_rd_node(BOARD[a + U ]) && searchl(f + 0, r - 1)) REACHED[a] = true; // ノードから左上に向かう
+  REACHED[a] |= f == FILE_MAX - 1;
+  REACHED[a] |= has_ru_node(BOARD[a]) && has_ld_node(BOARD[a + RU]) && search_r(f + 1, r - 1); // パネルの右上のノードから右上に向かう
+  REACHED[a] |= has_ru_node(BOARD[a]) && has_lu_node(BOARD[a + R ]) && search_r(f + 1, r - 0); // パネルの右上のノードから右下に向かう
+  REACHED[a] |= has_ru_node(BOARD[a]) && has_rd_node(BOARD[a + U ]) && search_l(f + 0, r - 1); // パネルの右上のノードから左上に向かう
+  REACHED[a] |= has_rd_node(BOARD[a]) && has_lu_node(BOARD[a + RD]) && search_r(f + 1, r + 1); // パネルの右下のノードから右下に向かう
+  REACHED[a] |= has_rd_node(BOARD[a]) && has_ld_node(BOARD[a + R ]) && search_r(f + 1, r + 0); // パネルの右下のノードから右上に向かう
+  REACHED[a] |= has_rd_node(BOARD[a]) && has_ru_node(BOARD[a + D ]) && search_l(f + 0, r + 1); // パネルの右下のノードから左下に向かう
 
-  // パネルの右下にノードがある
-  if (has_rd_node(BOARD[a]) && has_lu_node(BOARD[a + RD]) && searchr(f + 1, r + 1)) REACHED[a] = true; // ノードから右下に向かう
-  if (has_rd_node(BOARD[a]) && has_ld_node(BOARD[a + R ]) && searchr(f + 1, r + 0)) REACHED[a] = true; // ノードから右上に向かう
-  if (has_rd_node(BOARD[a]) && has_ru_node(BOARD[a + D ]) && searchl(f + 0, r + 1)) REACHED[a] = true; // ノードから左下に向かう
-
+  SEEN[a] = false;
   return REACHED[a];
 }
 
 /**
  * パネルの左端のノード（左上か左下）に接続されているエッジを探索する
  */
-bool searchl(uint8_t f, uint8_t r) {
+bool search_l(uint8_t f, uint8_t r) {
   if (FILE_MAX <= f || RANK_MAX <= r) return false;
   uint8_t a = address(f, r);
   if (SEEN[a] || REACHED[a]) return REACHED[a];
   SEEN[a] = true;
-  if (BOARD[a] == EMPTY) return false;
-  // if (f == FILE_MAX - 1) REACHED[a] = true; // 左端探索のときは到達しない
 
-  // パネルの左上にノードがある
-  if (has_lu_node(BOARD[a]) && has_rd_node(BOARD[a + LU]) && searchl(f - 1, r - 1)) REACHED[a] = true; // ノードから左上に向かう
-  if (has_lu_node(BOARD[a]) && has_ru_node(BOARD[a + L ]) && searchl(f - 1, r - 0)) REACHED[a] = true; // ノードから左下に向かう
-  if (has_lu_node(BOARD[a]) && has_ld_node(BOARD[a + U ]) && searchr(f - 0, r - 1)) REACHED[a] = true; // ノードから右上に向かう
+  // REACHED[a] |= f == FILE_MAX - 1; // 左端探索のときは到達しない
+  REACHED[a] |= has_lu_node(BOARD[a]) && has_rd_node(BOARD[a + LU]) && search_l(f - 1, r - 1); // パネルの左上のノードから左上に向かう
+  REACHED[a] |= has_lu_node(BOARD[a]) && has_ru_node(BOARD[a + L ]) && search_l(f - 1, r - 0); // パネルの左上のノードから左下に向かう
+  REACHED[a] |= has_lu_node(BOARD[a]) && has_ld_node(BOARD[a + U ]) && search_r(f - 0, r - 1); // パネルの左上のノードから右上に向かう
+  REACHED[a] |= has_ld_node(BOARD[a]) && has_ru_node(BOARD[a + LD]) && search_l(f - 1, r + 1); // パネルの左下のノードから左下に向かう
+  REACHED[a] |= has_ld_node(BOARD[a]) && has_rd_node(BOARD[a + L ]) && search_l(f - 1, r + 0); // パネルの左下のノードから左上に向かう
+  REACHED[a] |= has_ld_node(BOARD[a]) && has_lu_node(BOARD[a + D ]) && search_r(f - 0, r + 1); // パネルの左下のノードから右下に向かう
 
-  // パネルの左下にノードがある
-  if (has_ld_node(BOARD[a]) && has_ru_node(BOARD[a + LD]) && searchl(f - 1, r + 1)) REACHED[a] = true; // ノードから左下に向かう
-  if (has_ld_node(BOARD[a]) && has_rd_node(BOARD[a + L ]) && searchl(f - 1, r + 0)) REACHED[a] = true; // ノードから左上に向かう
-  if (has_ld_node(BOARD[a]) && has_lu_node(BOARD[a + D ]) && searchr(f - 0, r + 1)) REACHED[a] = true; // ノードから右下に向かう
-
+  SEEN[a] = false;
   return REACHED[a];
 }
 
@@ -178,10 +172,10 @@ void loop() {
 
   frame_counter++;
 
-  memset(REACHED, false, sizeof(REACHED)); 
+  memset(REACHED, 0, sizeof(REACHED)); 
+  memset(SEEN, 0, sizeof(SEEN)); 
   for (int r = 0; r < RANK_MAX; r++) {
-    memset(SEEN, false, sizeof(SEEN)); 
-    searchr(0, r);
+    search_r(0, r);
   }
   for (int a = 0; a < 50; a++) {
     if (REACHED[a]) {
