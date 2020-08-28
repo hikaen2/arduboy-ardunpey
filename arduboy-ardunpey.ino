@@ -72,10 +72,10 @@ Arduboy2 arduboy;
 panel_t BOARD[FILE_MAX * RANK_MAX];
 bool REACHED[FILE_MAX * RANK_MAX];
 bool SEEN[FILE_MAX * RANK_MAX];
-int cur_file = 2;
-int cur_rank = 4;
-int frame_counter = 128;
-int key_wait = 0;
+uint8_t cur_file = 2;
+uint8_t cur_rank = 4;
+uint8_t key_wait = 0;
+uint8_t scroll_wait = 64;
 int score = 0;
 
 
@@ -94,8 +94,6 @@ void loop() {
   if (!arduboy.nextFrame()) return;
   arduboy.pollButtons();
 
-  frame_counter++;
-
   memset(REACHED, 0, sizeof(REACHED));
   memset(SEEN, 0, sizeof(SEEN));
   for (int r = 0; r < RANK_MAX; r++) {
@@ -108,12 +106,13 @@ void loop() {
     }
   }
 
-  if (frame_counter % 256 == 0 || arduboy.justPressed(B_BUTTON)) {
+  if (--scroll_wait == 0 || arduboy.justPressed(B_BUTTON)) {
     panel_t b[] = {EMPTY, EMPTY, EMPTY, EMPTY, SLASH, BACK_SLASH, AND, OR};
     for (int f = 0; f < FILE_MAX; f++) BOARD[address(f, 0)] = EMPTY;
     for (int a = 0; a < 49; a++) BOARD[a] = BOARD[a + 1];
     for (int f = 0; f < FILE_MAX; f++) BOARD[address(f, 9)] = b[random(8)];
     cur_rank = max(cur_rank - 1, 0);
+    scroll_wait = 255;
   }
 
   if (arduboy.justPressed(A_BUTTON)) {
