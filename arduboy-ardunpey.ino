@@ -76,6 +76,7 @@ uint8_t cur_file = 2;
 uint8_t cur_rank = 4;
 uint8_t key_wait = 0;
 uint8_t scroll_wait = 64;
+uint8_t erase_wait = 0;
 int score = 0;
 
 
@@ -94,19 +95,24 @@ void loop() {
   if (!arduboy.nextFrame()) return;
   arduboy.pollButtons();
 
-  memset(REACHED, 0, sizeof(REACHED));
-  memset(SEEN, 0, sizeof(SEEN));
-  for (int r = 0; r < RANK_MAX; r++) {
-    search_r(0, r);
-  }
-  for (int a = 0; a < 50; a++) {
-    if (REACHED[a]) {
-      BOARD[a] = EMPTY;
-      score++;
+  erase_wait = max(erase_wait - 1, 0);
+  if (erase_wait == 0) {
+    for (int a = 0; a < 50; a++) {
+      if (REACHED[a]) {
+        BOARD[a] = EMPTY;
+        score++;
+      }
     }
+    memset(REACHED, 0, sizeof(REACHED));
+    memset(SEEN, 0, sizeof(SEEN));
+    bool reached = false;
+    for (int r = 0; r < RANK_MAX; r++) {
+      reached |= search_r(0, r);
+    }
+    if (reached) erase_wait = 31;
   }
 
-  if (--scroll_wait == 0 || arduboy.justPressed(B_BUTTON)) {
+  if (erase_wait == 0 && (--scroll_wait == 0 || arduboy.justPressed(B_BUTTON))) {
     panel_t b[] = {EMPTY, EMPTY, EMPTY, EMPTY, SLASH, BACK_SLASH, AND, OR};
     for (int f = 0; f < FILE_MAX; f++) BOARD[address(f, 0)] = EMPTY;
     for (int a = 0; a < 49; a++) BOARD[a] = BOARD[a + 1];
@@ -115,7 +121,7 @@ void loop() {
     scroll_wait = 255;
   }
 
-  if (arduboy.justPressed(A_BUTTON)) {
+  if (arduboy.justPressed(A_BUTTON) && !REACHED[address(cur_file, cur_rank)] && !REACHED[address(cur_file, cur_rank + 1)]) {
     panel_t b = BOARD[address(cur_file, cur_rank)];
     BOARD[address(cur_file, cur_rank)] = BOARD[address(cur_file, cur_rank + 1)];
     BOARD[address(cur_file, cur_rank + 1)] = b;
@@ -144,7 +150,12 @@ void loop() {
   arduboy.clear();
   for (int f = 0; f < FILE_MAX; f++) {
     for (int r = 0; r < RANK_MAX; r++) {
-      draw_panel(f, r, &BOX_BITMAP[24 * BOARD[address(f, r)]]);
+      int a = address(f, r);
+      if (REACHED[a] && erase_wait / 8 % 2 == 1) {
+        draw_panel(f, r, &BOX_BITMAP[0]);
+      } else {
+        draw_panel(f, r, &BOX_BITMAP[24 * BOARD[a]]);
+      }
     }
   }
   draw_cursor(cur_file, cur_rank);
