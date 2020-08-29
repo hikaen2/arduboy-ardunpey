@@ -97,7 +97,7 @@ void loop() {
 
   erase_wait = max(erase_wait - 1, 0);
   if (erase_wait == 0) {
-    for (int a = 0; a < 50; a++) {
+    for (int a = 0; a < FILE_MAX * RANK_MAX; a++) {
       if (REACHED[a]) {
         BOARD[a] = EMPTY;
         score++;
@@ -115,7 +115,7 @@ void loop() {
   if (erase_wait == 0 && (--scroll_wait == 0 || arduboy.justPressed(B_BUTTON))) {
     panel_t b[] = {EMPTY, EMPTY, EMPTY, EMPTY, SLASH, BACK_SLASH, AND, OR};
     for (int f = 0; f < FILE_MAX; f++) BOARD[address(f, 0)] = EMPTY;
-    for (int a = 0; a < 49; a++) BOARD[a] = BOARD[a + 1];
+    for (int a = 0; a < FILE_MAX * RANK_MAX - 1; a++) BOARD[a] = BOARD[a + 1];
     for (int f = 0; f < FILE_MAX; f++) BOARD[address(f, 9)] = b[random(8)];
     cur_rank = max(cur_rank - 1, 0);
     scroll_wait = 255;
