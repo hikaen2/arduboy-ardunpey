@@ -159,12 +159,11 @@ void loop() {
     }
   }
   draw_cursor(cur_file, cur_rank);
-
   arduboy.drawBitmap(120, 48, &NUM_BITMAP[5 * (score / 1000 % 10)], 5, 3);
   arduboy.drawBitmap(120, 52, &NUM_BITMAP[5 * (score / 100 % 10)], 5, 3);
   arduboy.drawBitmap(120, 56, &NUM_BITMAP[5 * (score / 10 % 10)], 5, 3);
   arduboy.drawBitmap(120, 60, &NUM_BITMAP[5 * (score % 10)], 5, 3);
-
+  arduboy.drawFastVLine(127, 0, 63 - scroll_wait / 4);
   arduboy.display();
 }
 
